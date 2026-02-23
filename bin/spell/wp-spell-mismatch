@@ -2,7 +2,15 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-DICT_FILE="${SCRIPT_DIR}/../../lib/dictionary.txt"
+
+# Find lib directory: check ../lib first (installed), then ../../lib (project)
+if [[ -d "${SCRIPT_DIR}/../lib" ]]; then
+    LIB_DIR="${SCRIPT_DIR}/../lib"
+else
+    LIB_DIR="${SCRIPT_DIR}/../../lib"
+fi
+
+DICT_FILE="${LIB_DIR}/dictionary.txt"
 
 # Parse flags
 ADD_WORD=""
