@@ -1,0 +1,92 @@
+#!/usr/bin/env bash
+#
+# wp-spell - Spell pipeline assembler
+# Assembles the five spell stages into one runnable command
+#
+# Usage: wp-spell [OPTIONS] [FILE]
+#
+# Options:
+#   -d FILE    Use an alternate dictionary file
+#   -a WORD    Add WORD to the dictionary, then exit
+#   --count    Print only the count of misspelled words (integer)
+#   --no-commit Force read-only mode even if called through wp run
+#
+
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+DICT="${SCRIPT_DIR}/../../lib/dictionary.txt"
+INPUT="${1:-}"
+
+# Parse options
+ADD_WORD=""
+COUNT_ONLY=0
+NO_COMMIT=0
+
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        -d)
+            DICT="$2"
+            shift 2
+            ;;
+        -a)
+            ADD_WORD="$2"
+            shift 2
+            ;;
+        --count)
+            COUNT_ONLY=1
+            shift
+            ;;
+        --no-commit)
+            NO_COMMIT=1
+            shift
+            ;;
+        -*)
+            echo "Unknown option: $1" >&2
+            exit 1
+            ;;
+        *)
+            INPUT="$1"
+            shift
+            ;;
+    esac
+done
+
+# If -a flag was provided, add word to dictionary
+if [[ -n "$ADD_WORD" ]]; then
+    echo "$ADD_WORD" >> "$DICT"
+    sort -o "$DICT" "$DICT"
+    exit 0
+fi
+
+# Resolve input source
+if [[ -n "$INPUT" ]]; then
+    SOURCE="$INPUT"
+else
+    source "${SCRIPT_DIR}/../../lib/wp-common.sh"
+    SOURCE="$(wp_current)"
+fi
+
+# Run the spell pipeline
+if [[ $COUNT_ONLY -eq 1 ]]; then
+    RESULT=$(cat "$SOURCE" \
+        | "${SCRIPT_DIR}/wp-spell-words" \
+        | "${SCRIPT_DIR}/wp-spell-lower" \
+        | sort \
+        | "${SCRIPT_DIR}/wp-spell-unique" \
+        | "${SCRIPT_DIR}/wp-spell-mismatch" -d "$DICT")
+    
+    if [[ -z "$RESULT" ]]; then
+        echo "0"
+    else
+        echo "$RESULT" | wc -l | tr -d ' '
+    fi
+else
+    cat "$SOURCE" \
+        | "${SCRIPT_DIR}/wp-spell-words" \
+        | "${SCRIPT_DIR}/wp-spell-lower" \
+        | sort \
+        | "${SCRIPT_DIR}/wp-spell-unique" \
+        | "${SCRIPT_DIR}/wp-spell-mismatch" -d "$DICT"
+fi

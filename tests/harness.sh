@@ -34,13 +34,31 @@ assert_contains() {
     local description="$1"
     local haystack="$2"
     local needle="$3"
-    
+
     if [[ "$haystack" == *"$needle"* ]]; then
         echo "PASS: $description"
         TESTS_PASSED=$((TESTS_PASSED + 1))
     else
         echo "FAIL: $description"
         echo "  Expected '$haystack' to contain '$needle'"
+        TESTS_FAILED=$((TESTS_FAILED + 1))
+    fi
+}
+
+# assert_not_contains
+# Usage: assert_not_contains DESCRIPTION HAYSTACK NEEDLE
+# Passes if NEEDLE is NOT a substring of HAYSTACK
+assert_not_contains() {
+    local description="$1"
+    local haystack="$2"
+    local needle="$3"
+
+    if [[ "$haystack" != *"$needle"* ]]; then
+        echo "PASS: $description"
+        TESTS_PASSED=$((TESTS_PASSED + 1))
+    else
+        echo "FAIL: $description"
+        echo "  Expected '$haystack' to NOT contain '$needle'"
         TESTS_FAILED=$((TESTS_FAILED + 1))
     fi
 }
