@@ -17,13 +17,13 @@ session directory structure, and the test harness used by all other tasks.
 Create the following directory structure (empty placeholder files where noted):
 
 ```
-wp/
+.
 ├── bin/
 │   └── spell/
 ├── lib/
 ├── session/         ← created at runtime by `wp init`, not committed to repo
 ├── tests/
-└── README.md        ← one-line placeholder is fine
+└── README.md
 ```
 
 ### 2. `lib/wp-common.sh`

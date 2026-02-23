@@ -4,11 +4,11 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(dirname "${BASH_SOURCE[0]}")"
-source "$SCRIPT_DIR/../wp/tests/harness.sh"
-source "$SCRIPT_DIR/../wp/lib/wp-common.sh"
+source "$SCRIPT_DIR/harness.sh"
+source "$SCRIPT_DIR/../lib/wp-common.sh"
 
 # Path to wp-undo
-WP_UNDO="$(dirname "$SCRIPT_DIR")/wp/bin/wp-undo"
+WP_UNDO="$(dirname "$SCRIPT_DIR")/bin/wp-undo"
 
 # Create a temporary session with known snapshots
 setup_session() {
