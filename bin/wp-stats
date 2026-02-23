@@ -1,0 +1,207 @@
+#!/usr/bin/env bash
+#
+# wp-stats - Compute and display document statistics
+#
+# Usage: wp-stats [OPTIONS] [FILE]
+#
+# If FILE is provided, read from it. Otherwise read from stdin.
+#
+
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# Default options
+SHOW_WORD=0
+SHOW_LINE=0
+SHOW_CHAR=0
+SHOW_SENTENCE=0
+SHOW_PARAGRAPH=0
+SHOW_FREQ=""
+SHOW_AVG=0
+
+# Parse options
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        -w)
+            SHOW_WORD=1
+            shift
+            ;;
+        -l)
+            SHOW_LINE=1
+            shift
+            ;;
+        -c)
+            SHOW_CHAR=1
+            shift
+            ;;
+        -s)
+            SHOW_SENTENCE=1
+            shift
+            ;;
+        -p)
+            SHOW_PARAGRAPH=1
+            shift
+            ;;
+        --freq)
+            SHOW_FREQ="$2"
+            shift 2
+            ;;
+        --avg)
+            SHOW_AVG=1
+            shift
+            ;;
+        -*)
+            echo "Unknown option: $1" >&2
+            exit 1
+            ;;
+        *)
+            INPUT_FILE="$1"
+            shift
+            ;;
+    esac
+done
+
+# Read input
+if [[ -n "${INPUT_FILE:-}" ]]; then
+    INPUT_CONTENT="$(cat "$INPUT_FILE")"
+else
+    INPUT_CONTENT="$(cat)"
+fi
+
+# Handle empty input
+if [[ -z "$INPUT_CONTENT" ]]; then
+    if [[ $SHOW_WORD -eq 1 && $SHOW_LINE -eq 0 && $SHOW_SENTENCE -eq 0 && $SHOW_PARAGRAPH -eq 0 && $SHOW_CHAR -eq 0 && -z "$SHOW_FREQ" && $SHOW_AVG -eq 0 ]]; then
+        echo "0"
+    elif [[ $SHOW_LINE -eq 1 && $SHOW_WORD -eq 0 && $SHOW_SENTENCE -eq 0 && $SHOW_PARAGRAPH -eq 0 && $SHOW_CHAR -eq 0 && -z "$SHOW_FREQ" && $SHOW_AVG -eq 0 ]]; then
+        echo "0"
+    elif [[ $SHOW_CHAR -eq 1 && $SHOW_WORD -eq 0 && $SHOW_SENTENCE -eq 0 && $SHOW_PARAGRAPH -eq 0 && $SHOW_LINE -eq 0 && -z "$SHOW_FREQ" && $SHOW_AVG -eq 0 ]]; then
+        echo "0"
+    elif [[ $SHOW_SENTENCE -eq 1 && $SHOW_WORD -eq 0 && $SHOW_LINE -eq 0 && $SHOW_PARAGRAPH -eq 0 && $SHOW_CHAR -eq 0 && -z "$SHOW_FREQ" && $SHOW_AVG -eq 0 ]]; then
+        echo "0"
+    elif [[ $SHOW_PARAGRAPH -eq 1 && $SHOW_WORD -eq 0 && $SHOW_LINE -eq 0 && $SHOW_SENTENCE -eq 0 && $SHOW_CHAR -eq 0 && -z "$SHOW_FREQ" && $SHOW_AVG -eq 0 ]]; then
+        echo "0"
+    elif [[ -z "$SHOW_FREQ" && $SHOW_AVG -eq 0 ]]; then
+        # Full report with zeros
+        printf '──────────────────────────────\n'
+        printf ' Document Statistics\n'
+        printf '──────────────────────────────\n'
+        printf ' Lines           :          0\n'
+        printf ' Words           :          0\n'
+        printf ' Characters      :          0\n'
+        printf ' Sentences       :          0\n'
+        printf ' Paragraphs      :          0\n'
+        printf ' Avg word length :       0.00\n'
+        printf ' Avg words/sent  :       0.00\n'
+        printf '──────────────────────────────\n'
+    else
+        if [[ -n "$SHOW_FREQ" ]]; then
+            : # No output for freq on empty input
+        fi
+        if [[ $SHOW_AVG -eq 1 ]]; then
+            echo "0.00"
+        fi
+    fi
+    exit 0
+fi
+
+# Compute statistics
+WORD_COUNT=$(echo "$INPUT_CONTENT" | wc -w | tr -d ' ')
+LINE_COUNT=$(echo "$INPUT_CONTENT" | wc -l | tr -d ' ')
+CHAR_COUNT=$(echo "$INPUT_CONTENT" | wc -m | tr -d ' ')
+SENTENCE_COUNT=$(echo "$INPUT_CONTENT" | { grep -oE '[.!?](\s|$)' || true; } | wc -l | tr -d ' ')
+PARAGRAPH_COUNT=$(echo "$INPUT_CONTENT" | awk 'BEGIN{p=1} /^[[:space:]]*$/{if(!b){p++; b=1}} /[^[:space:]]/{b=0} END{print p}')
+
+# Function to format numbers with commas
+format_number() {
+    printf "%'d" "$1"
+}
+
+# Function to compute average word length
+compute_avg_word_length() {
+    echo "$INPUT_CONTENT" | tr -cs 'A-Za-z' '\n' | grep -v '^$' | awk '{ total += length($0); count++ } END { if(count>0) printf "%.2f\n", total/count; else print "0.00" }'
+}
+
+# Function to compute average words per sentence
+compute_avg_words_per_sentence() {
+    if [[ "$SENTENCE_COUNT" -eq 0 ]]; then
+        echo "0.00"
+    else
+        awk "BEGIN { printf \"%.2f\n\", $WORD_COUNT / $SENTENCE_COUNT }"
+    fi
+}
+
+# Function to compute word frequency
+compute_freq() {
+    local n="$1"
+    local stopwords_file="$SCRIPT_DIR/../lib/stopwords.txt"
+    echo "$INPUT_CONTENT" | tr -cs 'A-Za-z' '\n' | tr 'A-Z' 'a-z' | grep -vFf "$stopwords_file" | sort | uniq -c | sort -rn | head -"$n" | awk '{printf "  %-20s %d\n", $2, $1}'
+}
+
+# Determine output mode
+SINGLE_MODE=0
+FLAG_COUNT=$((SHOW_WORD + SHOW_LINE + SHOW_CHAR + SHOW_SENTENCE + SHOW_PARAGRAPH))
+
+if [[ $FLAG_COUNT -eq 1 && -z "$SHOW_FREQ" && $SHOW_AVG -eq 0 ]]; then
+    SINGLE_MODE=1
+fi
+
+# Output based on flags
+if [[ $SINGLE_MODE -eq 1 ]]; then
+    if [[ $SHOW_WORD -eq 1 ]]; then
+        echo "$WORD_COUNT"
+    elif [[ $SHOW_LINE -eq 1 ]]; then
+        echo "$LINE_COUNT"
+    elif [[ $SHOW_CHAR -eq 1 ]]; then
+        echo "$CHAR_COUNT"
+    elif [[ $SHOW_SENTENCE -eq 1 ]]; then
+        echo "$SENTENCE_COUNT"
+    elif [[ $SHOW_PARAGRAPH -eq 1 ]]; then
+        echo "$PARAGRAPH_COUNT"
+    fi
+else
+    # Multi-flag or full report mode
+    if [[ $SHOW_WORD -eq 1 ]]; then
+        printf "Words: %s\n" "$(format_number "$WORD_COUNT")"
+    fi
+    if [[ $SHOW_LINE -eq 1 ]]; then
+        printf "Lines: %s\n" "$(format_number "$LINE_COUNT")"
+    fi
+    if [[ $SHOW_CHAR -eq 1 ]]; then
+        printf "Characters: %s\n" "$(format_number "$CHAR_COUNT")"
+    fi
+    if [[ $SHOW_SENTENCE -eq 1 ]]; then
+        printf "Sentences: %s\n" "$(format_number "$SENTENCE_COUNT")"
+    fi
+    if [[ $SHOW_PARAGRAPH -eq 1 ]]; then
+        printf "Paragraphs: %s\n" "$(format_number "$PARAGRAPH_COUNT")"
+    fi
+    if [[ -n "$SHOW_FREQ" ]]; then
+        compute_freq "$SHOW_FREQ"
+    fi
+    if [[ $SHOW_AVG -eq 1 ]]; then
+        AVG_WORD_LEN=$(compute_avg_word_length)
+        AVG_WORDS_SENT=$(compute_avg_words_per_sentence)
+        printf "Avg word length: %s\n" "$AVG_WORD_LEN"
+        printf "Avg words/sent: %s\n" "$AVG_WORDS_SENT"
+    fi
+    
+    # Full report if no specific flags
+    if [[ $FLAG_COUNT -eq 0 && -z "$SHOW_FREQ" && $SHOW_AVG -eq 0 ]]; then
+        AVG_WORD_LEN=$(compute_avg_word_length)
+        AVG_WORDS_SENT=$(compute_avg_words_per_sentence)
+        printf '──────────────────────────────\n'
+        printf ' Document Statistics\n'
+        printf '──────────────────────────────\n'
+        printf ' Lines           : %10s\n' "$(format_number "$LINE_COUNT")"
+        printf ' Words           : %10s\n' "$(format_number "$WORD_COUNT")"
+        printf ' Characters      : %10s\n' "$(format_number "$CHAR_COUNT")"
+        printf ' Sentences       : %10s\n' "$(format_number "$SENTENCE_COUNT")"
+        printf ' Paragraphs      : %10s\n' "$(format_number "$PARAGRAPH_COUNT")"
+        printf ' Avg word length : %10s\n' "$AVG_WORD_LEN"
+        printf ' Avg words/sent  : %10s\n' "$AVG_WORDS_SENT"
+        printf '──────────────────────────────\n'
+    fi
+fi
+
+exit 0
