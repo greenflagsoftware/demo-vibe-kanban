@@ -11,7 +11,8 @@ install:
 	@mkdir -p $(INSTALL_BIN) $(INSTALL_LIB)
 	@cp bin/wp bin/wp-search bin/wp-stats bin/wp-undo $(INSTALL_BIN)/
 	@cp bin/spell/wp-spell $(INSTALL_BIN)/
-	@cp lib/wp-common.sh $(INSTALL_LIB)/
+	@cp bin/spell/wp-spell-words bin/spell/wp-spell-lower bin/spell/wp-spell-unique bin/spell/wp-spell-mismatch $(INSTALL_BIN)/
+	@cp lib/wp-common.sh lib/dictionary.txt lib/stopwords.txt $(INSTALL_LIB)/
 	@echo "Installed to $(INSTALL_DIR)"
 
 clean:
