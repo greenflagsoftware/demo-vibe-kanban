@@ -2,7 +2,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(dirname "$0")"
-source "$SCRIPT_DIR/../wp/tests/harness.sh"
+source "$SCRIPT_DIR/harness.sh"
 
 SPELL_WORDS="$SCRIPT_DIR/../bin/spell/wp-spell-words"
 
