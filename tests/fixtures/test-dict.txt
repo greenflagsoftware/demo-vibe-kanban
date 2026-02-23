@@ -1,0 +1,9 @@
+cat
+dog
+fox
+jumps
+lazy
+over
+quick
+sat
+the
